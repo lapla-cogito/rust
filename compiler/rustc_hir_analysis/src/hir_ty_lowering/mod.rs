@@ -2843,7 +2843,17 @@ impl<'tcx> dyn HirTyLowerer<'tcx> + '_ {
         }
         let input = LitToConstInput { lit: *kind, ty, neg };
         match tcx.at(span).lit_to_const(input) {
-            Some(value) => ty::Const::new_value(tcx, value.valtree, value.ty),
+            Some(value) if value.ty == ty => ty::Const::new_value(tcx, value.valtree, value.ty),
+            Some(value) => {
+                // The literal's type (from its suffix) doesn't match the expected type.
+                let ct = ty::Const::new_value(tcx, value.valtree, value.ty);
+                let mut diag = tcx
+                    .dcx()
+                    .struct_span_err(span, format!("the constant `{ct}` is not of type `{ty}`"));
+                diag.span_label(span, format!("expected `{ty}`, found `{}`", value.ty));
+                let guar = diag.emit();
+                ty::Const::new_error(tcx, guar)
+            }
             None => {
                 let e = tcx.dcx().span_err(span, "type annotations needed for the literal");
                 ty::Const::new_error(tcx, e)

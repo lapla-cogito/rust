@@ -3,9 +3,9 @@
 
 type const FREE: u32 = 5_usize;
 //~^ ERROR the constant `5` is not of type `u32`
+//~| NOTE expected `u32`, found `usize`
 
 type const FREE2: isize = FREE;
-//~^ ERROR the constant `5` is not of type `isize`
 
 trait Tr {
     type const N: usize;
@@ -14,6 +14,7 @@ trait Tr {
 impl Tr for () {
     type const N: usize = false;
     //~^ ERROR the constant `false` is not of type `usize`
+    //~| NOTE expected `usize`, found `bool`
 }
 
 fn main() {}

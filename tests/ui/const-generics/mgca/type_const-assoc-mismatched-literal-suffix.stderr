@@ -1,0 +1,8 @@
+error: the constant `0` is not of type `usize`
+  --> $DIR/type_const-assoc-mismatched-literal-suffix.rs:16:29
+   |
+LL |     type const LEN: usize = 0u8;
+   |                             ^^^ expected `usize`, found `u8`
+
+error: aborting due to 1 previous error
+
