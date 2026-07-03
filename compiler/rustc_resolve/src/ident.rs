@@ -2,7 +2,8 @@ use std::ops::ControlFlow;
 
 use Determinacy::*;
 use Namespace::*;
-use rustc_ast::{self as ast, NodeId};
+use rustc_ast::visit::{FnCtxt, FnKind};
+use rustc_ast::{self as ast, ItemKind, NodeId};
 use rustc_errors::ErrorGuaranteed;
 use rustc_hir::def::{DefKind, MacroKinds, Namespace, NonMacroAttrKind, PartialRes, PerNS};
 use rustc_middle::{bug, span_bug};
@@ -10,6 +11,7 @@ use rustc_session::errors::feature_err;
 use rustc_session::lint::builtin::PROC_MACRO_DERIVE_RESOLUTION_FALLBACK;
 use rustc_span::edition::Edition;
 use rustc_span::hygiene::{ExpnId, ExpnKind, LocalExpnId, MacroKind, SyntaxContext};
+use rustc_span::source_map::SourceMap;
 use rustc_span::{Ident, Span, kw, sym};
 use smallvec::SmallVec;
 use tracing::{debug, instrument};
@@ -1501,7 +1503,24 @@ impl<'ra, 'tcx> Resolver<'ra, 'tcx> {
                                 // we want certain other resolution errors (namely those
                                 // emitted for `ConstantItemRibKind` below) to take
                                 // precedence.
-                                res_err = Some((span, CannotCaptureDynamicEnvironmentInFnItem));
+                                //
+                                // Only suggest rewriting the `fn` as a closure when that is
+                                // actually possible. Associated functions must use `fn` syntax
+                                // (e.g. to implement a trait), and delegation items are not
+                                // free functions either, so the classic suggestion is misleading
+                                // in those cases.
+                                let (fn_span, can_be_closure) = capture_error_fn_info(
+                                    rib.kind,
+                                    diag_metadata,
+                                    self.tcx.sess.source_map(),
+                                );
+                                res_err = Some((
+                                    span,
+                                    CannotCaptureDynamicEnvironmentInFnItem {
+                                        fn_span,
+                                        can_be_closure,
+                                    },
+                                ));
                             }
                         }
                         RibKind::ConstantItem(_, item) => {
@@ -2169,4 +2188,61 @@ impl<'ra, 'tcx> Resolver<'ra, 'tcx> {
             _ => bug!("resolve_path: non-empty path `{:?}` has no module", path),
         })
     }
+}
+
+/// Collect spans and applicability info for E0434 from the blocking rib and diagnostic metadata.
+///
+/// The closure suggestion is only applicable for nested free `fn` items. Associated functions
+/// must use `fn` syntax (especially when implementing a trait), and delegation items are
+/// synthesized function items that cannot be written as closures either.
+fn capture_error_fn_info(
+    rib_kind: RibKind<'_>,
+    diag_metadata: Option<&DiagMetadata<'_>>,
+    source_map: &SourceMap,
+) -> (Option<Span>, bool) {
+    let Some(meta) = diag_metadata else {
+        return (None, matches!(rib_kind, RibKind::Item(_, DefKind::Fn)));
+    };
+
+    match rib_kind {
+        RibKind::AssocItem => {
+            let fn_span = match meta.current_function {
+                Some((FnKind::Fn(FnCtxt::Assoc(_), _, func), _)) => {
+                    Some(fn_keyword_span(source_map, &func.sig, func.ident.span))
+                }
+                _ => meta
+                    .current_impl_item
+                    .and_then(|item| item.kind.ident().map(|ident| ident.span)),
+            };
+            (fn_span, false)
+        }
+        RibKind::Item(_, DefKind::Fn) => {
+            // `current_item` is the item whose rib we just crossed. Only suggest a closure when
+            // that item is a user-written nested `fn`; delegations and other synthetic fn items
+            // keep `current_function` pointing at an outer function and must not use it here.
+            if let Some(item) = meta.current_item
+                && let ItemKind::Fn(func) = &item.kind
+            {
+                (Some(fn_keyword_span(source_map, &func.sig, func.ident.span)), true)
+            } else {
+                // Delegation and other synthetic fn items: no `fn` keyword to point at.
+                (None, false)
+            }
+        }
+        RibKind::Item(_, _) => (None, false),
+        _ => (None, false),
+    }
+}
+
+/// Span covering the `fn` keyword in a function signature, falling back to the function name.
+fn fn_keyword_span(source_map: &SourceMap, sig: &ast::FnSig, ident_span: Span) -> Span {
+    let search_span = sig.span.with_hi(ident_span.lo());
+    if let Ok(snippet) = source_map.span_to_snippet(search_span)
+        && let Some(pos) = snippet.rfind("fn")
+    {
+        let lo = search_span.lo() + rustc_span::BytePos(pos as u32);
+        let hi = lo + rustc_span::BytePos(2);
+        return search_span.with_lo(lo).with_hi(hi);
+    }
+    ident_span
 }

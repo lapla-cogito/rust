@@ -1,0 +1,30 @@
+error[E0434]: can't capture dynamic environment in a fn item
+  --> $DIR/capture-in-trait-impl-method.rs:13:25
+   |
+LL |         fn t() -> impl FnOnce() {
+   |         -- this `fn` item
+LL |             move || {
+LL |                 let _ = x;
+   |                         ^
+
+error[E0434]: can't capture dynamic environment in a fn item
+  --> $DIR/capture-in-trait-impl-method.rs:24:21
+   |
+LL |         fn method() {
+   |         -- this `fn` item
+LL |             let _ = x;
+   |                     ^
+
+error[E0434]: can't capture dynamic environment in a fn item
+  --> $DIR/capture-in-trait-impl-method.rs:32:17
+   |
+LL |     fn inner() {
+   |     -- this `fn` item
+LL |         let _ = x;
+   |                 ^
+   |
+   = help: use the `|| { ... }` closure form instead
+
+error: aborting due to 3 previous errors
+
+For more information about this error, try `rustc --explain E0434`.

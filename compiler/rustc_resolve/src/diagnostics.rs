@@ -266,11 +266,27 @@ pub(crate) struct UnreachableLabelWithSimilarNameExists {
 
 #[derive(Diagnostic)]
 #[diag("can't capture dynamic environment in a fn item", code = E0434)]
-#[help("use the `|| {\"{\"} ... {\"}\"}` closure form instead")]
 pub(crate) struct CannotCaptureDynamicEnvironmentInFnItem {
     #[primary_span]
     pub(crate) span: Span,
+    #[subdiagnostic]
+    pub(crate) fn_label: Option<CannotCaptureDynamicEnvironmentInFnItemLabel>,
+    #[subdiagnostic]
+    pub(crate) suggestion: Option<CannotCaptureDynamicEnvironmentInFnItemSuggestion>,
 }
+
+#[derive(Subdiagnostic)]
+#[label("this `fn` item")]
+pub(crate) struct CannotCaptureDynamicEnvironmentInFnItemLabel {
+    #[primary_span]
+    pub(crate) span: Span,
+}
+
+/// Only emitted when the capturing `fn` item could actually be rewritten as a closure
+/// (i.e. a nested free function, not an associated function or delegation item).
+#[derive(Subdiagnostic)]
+#[help("use the `|| {\"{\"} ... {\"}\"}` closure form instead")]
+pub(crate) struct CannotCaptureDynamicEnvironmentInFnItemSuggestion;
 
 #[derive(Diagnostic)]
 #[diag("attempt to use a non-constant value in a constant", code = E0435)]

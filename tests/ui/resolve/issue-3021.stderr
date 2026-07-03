@@ -1,10 +1,10 @@
 error[E0434]: can't capture dynamic environment in a fn item
   --> $DIR/issue-3021.rs:12:22
    |
+LL |         fn reset(&self) {
+   |         -- this `fn` item
 LL |            self.v0 = k0 ^ 0x736f6d6570736575;
    |                      ^^
-   |
-   = help: use the `|| { ... }` closure form instead
 
 error: aborting due to 1 previous error
 

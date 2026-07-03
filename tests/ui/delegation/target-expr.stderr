@@ -15,8 +15,6 @@ error[E0434]: can't capture dynamic environment in a fn item
    |
 LL |         let x = y;
    |                 ^
-   |
-   = help: use the `|| { ... }` closure form instead
 
 error[E0424]: expected value, found module `self`
   --> $DIR/target-expr.rs:33:5

@@ -273,7 +273,13 @@ enum ResolutionError<'ra> {
         message: String,
     },
     /// Error E0434: can't capture dynamic environment in a fn item.
-    CannotCaptureDynamicEnvironmentInFnItem,
+    CannotCaptureDynamicEnvironmentInFnItem {
+        /// Span of the `fn` keyword (or function name) that blocks capturing, if known.
+        fn_span: Option<Span>,
+        /// Whether suggesting to rewrite the `fn` item as a closure is applicable.
+        /// False for associated functions, delegations, and other non-free `fn` items.
+        can_be_closure: bool,
+    },
     /// Error E0435: attempt to use a non-constant value in a constant.
     AttemptToUseNonConstantValueInConstant {
         ident: Ident,

@@ -737,7 +737,7 @@ pub(crate) struct DiagMetadata<'ast> {
     currently_processing_generic_args: bool,
 
     /// The current enclosing (non-closure) function (used for better errors).
-    current_function: Option<(FnKind<'ast>, Span)>,
+    pub(crate) current_function: Option<(FnKind<'ast>, Span)>,
 
     /// A list of labels as of yet unused. Labels will be removed from this map when
     /// they are used (in a `break` or `continue` statement)
@@ -776,8 +776,8 @@ pub(crate) struct DiagMetadata<'ast> {
     /// The current impl items (used to suggest).
     current_impl_items: Option<&'ast [Box<AssocItem>]>,
 
-    /// The current impl items (used to suggest).
-    current_impl_item: Option<&'ast AssocItem>,
+    /// The current impl item (used to suggest).
+    pub(crate) current_impl_item: Option<&'ast AssocItem>,
 
     /// When processing impl trait
     currently_processing_impl_trait: Option<(TraitRef, Ty)>,

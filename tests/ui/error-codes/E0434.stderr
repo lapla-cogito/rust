@@ -1,6 +1,8 @@
 error[E0434]: can't capture dynamic environment in a fn item
   --> $DIR/E0434.rs:4:9
    |
+LL |     fn bar() -> u32 {
+   |     -- this `fn` item
 LL |         y
    |         ^
    |

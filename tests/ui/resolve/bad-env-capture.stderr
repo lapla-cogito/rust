@@ -2,7 +2,7 @@ error[E0434]: can't capture dynamic environment in a fn item
   --> $DIR/bad-env-capture.rs:3:27
    |
 LL |     fn bar() { log(debug, x); }
-   |                           ^
+   |     -- this `fn` item     ^
    |
    = help: use the `|| { ... }` closure form instead
 
