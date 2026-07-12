@@ -308,6 +308,8 @@ where
                     .map(|pred| goal.with(cx, pred)),
             )?;
 
+            ecx.try_evaluate_added_goals()?;
+
             let error_response = |ecx: &mut EvalCtxt<'_, D>, guar| {
                 let error_term = match goal.predicate.alias.kind {
                     ty::AliasTermKind::ProjectionTy { .. } => Ty::new_error(cx, guar).into(),
