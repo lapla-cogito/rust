@@ -1,0 +1,25 @@
+error: unconstrained generic constant
+  --> $DIR/type-const-arg-type-mismatch.rs:7:1
+   |
+LL | type const ADD1<const N: usize>: usize = const { N + 1 };
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+help: try adding a `where` bound
+   |
+LL | type const ADD1<const N: usize>: usize where [(); const { N + 1 }]: = const { N + 1 };
+   |                                        ++++++++++++++++++++++++++++
+
+error: the constant `*b""` is not of type `usize`
+  --> $DIR/type-const-arg-type-mismatch.rs:10:1
+   |
+LL | type const ONE: usize = ADD1::<b"">;
+   | ^^^^^^^^^^^^^^^^^^^^^ expected `usize`, found `[u8; 0]`
+   |
+note: required by a bound on the type alias `ADD1`
+  --> $DIR/type-const-arg-type-mismatch.rs:7:17
+   |
+LL | type const ADD1<const N: usize>: usize = const { N + 1 };
+   |                 ^^^^^^^^^^^^^^ required by this bound
+
+error: aborting due to 2 previous errors
+

@@ -711,6 +711,11 @@ pub fn try_evaluate_const<'tcx>(
             // FIXME: `def_span` will point at the definition of this const; ideally, we'd point at
             // where it gets used as a const generic.
             let span = alias_const.kind.def_span(tcx);
+
+            if let Some(def_id) = alias_const.kind.opt_def_id() {
+                ensure_const_args_have_correct_types(tcx, def_id, args, span)?;
+            }
+
             match tcx.const_eval_resolve_for_typeck(typing_env, erased_alias_const, span) {
                 Ok(Ok(val)) => {
                     Ok(ty::Const::new_value(tcx, val, alias_const.type_of(tcx).skip_norm_wip()))
@@ -728,6 +733,60 @@ pub fn try_evaluate_const<'tcx>(
             }
         }
     }
+}
+
+/// Prevent CTFE on wrong-typed concrete const args.
+fn ensure_const_args_have_correct_types<'tcx>(
+    tcx: TyCtxt<'tcx>,
+    def_id: DefId,
+    args: GenericArgsRef<'tcx>,
+    span: Span,
+) -> Result<(), EvaluateConstErr> {
+    let generics = tcx.generics_of(def_id);
+    // Args are concrete here (no param/infer), so fully monomorphized normalization is fine.
+    let typing_env = ty::TypingEnv::fully_monomorphized();
+    for i in 0..generics.count() {
+        let param = generics.param_at(i, tcx);
+        if !matches!(param.kind, ty::GenericParamDefKind::Const { .. }) {
+            continue;
+        }
+
+        let Some(ct) = args.get(i).and_then(|arg| arg.as_const()) else {
+            continue;
+        };
+
+        let ty::ConstKind::Value(cv) = ct.kind() else {
+            continue;
+        };
+
+        let expected_ty = tcx.type_of(param.def_id).instantiate(tcx, args).skip_norm_wip();
+        if expected_ty.has_non_region_param() || expected_ty.has_non_region_infer() {
+            continue;
+        }
+
+        // Normalize so free aliases / projections on either side compare equal when `ConstArgHasType` would succeed.
+        let Ok(expected_ty) =
+            tcx.try_normalize_erasing_regions(typing_env, Unnormalized::new_wip(expected_ty))
+        else {
+            continue;
+        };
+        let Ok(actual_ty) =
+            tcx.try_normalize_erasing_regions(typing_env, Unnormalized::new_wip(cv.ty))
+        else {
+            continue;
+        };
+
+        if expected_ty != actual_ty {
+            let guar = tcx.dcx().span_delayed_bug(
+                span,
+                format!(
+                    "const generic argument has type `{actual_ty}` but expected `{expected_ty}`"
+                ),
+            );
+            return Err(EvaluateConstErr::InvalidConstParamTy(guar));
+        }
+    }
+    Ok(())
 }
 
 /// Replaces args that reference param or infer variables with suitable
